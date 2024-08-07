@@ -1,17 +1,25 @@
+from pydantic import BaseModel
+
 import marvin
 
 
-def get_bee_density(img_url):
-    img = marvin.Image(img_url)
-    result = marvin.extract(img, target=int, instructions="give an integer 1-100 of the density of bees in the picture.")
-    return result
+class BeeDensity(BaseModel):
+    density: int
+    estimate_number_of_bees: int
 
-pics = [
-    f"https://bee-data.s3.us-east-2.amazonaws.com/{i}.jpg"
-    for i in range(1, 9)
+
+bee_pictures = [
+    f"https://bee-data.s3.us-east-2.amazonaws.com/{i}.jpg" for i in range(1, 9)
 ]
 
-for pic in pics:
-    print(f"Processing image: {pic}")
-    marvin_result = get_bee_density(pic)
-    print(f"\nMarvin AI result for {pic}: {marvin_result}")
+
+for picture in bee_pictures:
+    img = marvin.Image(picture)
+    result = marvin.cast(
+        img,
+        target=BeeDensity,
+        instructions="Make an estimate of the number of bees in this photo and the density of bees around the hive",
+    )
+    print(
+        f"{picture} -> {result.estimate_number_of_bees} bees with a density of {result.density}"
+    )
