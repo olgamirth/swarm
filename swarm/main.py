@@ -1,10 +1,27 @@
 import typer
 import cv2
 import numpy as np
+import time
 import os
+
+from picamera2 import Picamera2
 
 app = typer.Typer()
 
+@app.command()
+def take_landingboard_photo():
+    """
+    Use the PiCamera2 module to take a picture of a Langstroth hive landing
+    board
+    """
+    # Create a PiCamera2 instance
+    beecam = Picamera2()
+    camera_config = beecam.create_still_configuration()
+    beecam.configure(camera_config)
+    beecam.start_preview(Preview.DRM)
+    beecam.start()
+    time.sleep(2)
+    beecam.capture_file(
 
 @app.command()
 def process_bee_photo(file_name: str):
