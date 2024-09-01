@@ -1,11 +1,13 @@
 import typer
 import cv2
 import numpy as np
+import boto3
 import time
 import datetime
 import os
 
-from picamera2 import Picamera2
+from picamera2 import Picamera2, Preview
+from botocore.exceptions import NoCredentialsError
 
 app = typer.Typer()
 
@@ -38,17 +40,21 @@ def take_landingboard_photo():
     Use the PiCamera2 module to take a picture of a Langstroth hive landing
     board
     """
-    # Create a PiCamera2 instance
+
     beecam = Picamera2()
-    camera_config = beecam.create_still_configuration()
+    camera_config = beecam.create_preview_configuration()
     beecam.configure(camera_config)
-    beecam.start_preview(Preview.DRM)
+    beecam.start_preview(Preview.NULL)
     beecam.start()
     time.sleep(2)
-    beecam.capture_file(
+
+    file_name = f"bees-{date_and_seconds_from_midnight()}.jpg"
+    beecam.capture_file(file_name)
+    beecam.stop_preview()
+
 
 @app.command()
-def process_bee_photo(file_name: str):
+def process_bee_photo(file_name: str, x: int, y: int):
     """
     Pre-process the image specified by file_name using OpenCV
     This will include resizing the images to a standard view, converting it
@@ -70,22 +76,33 @@ def process_bee_photo(file_name: str):
         std_height = y
         resized_image = cv2.resize(image, (std_width, std_height))
 
-        """
-        Convert the images to grayscale to reduce computational complexity,
-        since color information is not critical for this task. Grayscale images
-        have only one channel instead of three (RGB), which will make the
-        processing faster and potentially improving focus on shapes and
-        patterns.
-        """
-        gray_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
-
     except Exception as e:
         typer.echo(f"An error occurred: {e}")
+
+    # Convert image to grayscale
+    try:
+        gray_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
 
 
 @app.command()
 def upload_photo_to_s3(file_path: str):
     typer.echo(f"Uploading {file_path} to S3...")
+def upload_to_s3(file_name, bucket, object_name=None):
+    # If S3 object_name was not specified, use file_name
+    if object_name is None:
+        object_name = file_name
+
+    # Create an S3 client
+    s3_client = boto3.client('s3')
+
+    try:
+        # Upload the file
+        response = s3_client.upload_file(file_name, bucket, object_name)
+        print(f"File {file_name} uploaded to {bucket}/{object_name}")
+    except FileNotFoundError:
+        print("The file was not found")
+    except NoCredentialsError:
+        print("Credentials not available")
 
 
 @app.command()
