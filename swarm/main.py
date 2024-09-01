@@ -2,11 +2,35 @@ import typer
 import cv2
 import numpy as np
 import time
+import datetime
 import os
 
 from picamera2 import Picamera2
 
 app = typer.Typer()
+
+
+def date_and_seconds_from_midnight() -> str:
+    """
+    This function will return a date and time string in the format of
+    YYYYMMDD.sec where sec is the secods since midnight for the given day.
+    """
+
+    # Get the current datetime
+    now = datetime.datetime.now()
+
+    # Format the date part o the string to YYYYMMDD
+    date_str = now.strftime('%Y%m%d')
+
+    # Seconds since midnight
+    midnight = datetime.datetime.combine(now.date(), datetime.time(0, 0))
+    seconds_since_midnight = int((now - midnight).total_seconds())
+
+    # Combine date and seconds in the required format
+    result = f"{date_str}.{seconds_since_midnight}"
+
+    return result
+
 
 @app.command()
 def take_landingboard_photo():
