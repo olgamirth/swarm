@@ -83,11 +83,14 @@ def process_bee_photo(file_name: str, x: int, y: int):
     try:
         gray_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2GRAY)
 
+    except Exception as e:
+        typer.echo(f"An error occurred during grayscale processing: {e}")
+
 
 @app.command()
-def upload_photo_to_s3(file_path: str):
-    typer.echo(f"Uploading {file_path} to S3...")
-def upload_to_s3(file_name, bucket, object_name=None):
+def upload_photo_to_s3(file_name: str, bucket: str, object_name=None):
+    typer.echo(f"Uploading {file_name} to S3...")
+
     # If S3 object_name was not specified, use file_name
     if object_name is None:
         object_name = file_name
