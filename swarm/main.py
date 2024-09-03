@@ -3,33 +3,13 @@ import cv2
 import numpy as np
 import boto3
 import time
-import datetime
 import os
 
 from picamera2 import Picamera2, Preview
 from botocore.exceptions import NoCredentialsError
+from datetime import datetime
 
 app = typer.Typer()
-
-
-def date_and_seconds_from_midnight() -> str:
-    """
-    This function will return a date and time string in the format of
-    YYYYMMDD.sec where sec is the secods since midnight for the given day.
-    """
-
-    now = datetime.datetime.now()
-
-    date_str = now.strftime('%Y%m%d')
-
-    # Seconds since midnight
-    midnight = datetime.datetime.combine(now.date(), datetime.time(0, 0))
-    seconds_since_midnight = int((now - midnight).total_seconds())
-
-    # Combine date and seconds in the required format
-    result = f"{date_str}.{seconds_since_midnight}"
-
-    return result
 
 
 @app.command()
@@ -48,7 +28,10 @@ def take_landingboard_photo():
 
     # It's much easier to determine when the image was taken when filename
     # is in the format bees-YYYYMMDD.sec.jpg
-    file_name = f"bees-{date_and_seconds_from_midnight()}.jpg"
+    now = datetime.now()
+    iso_datetime = now.strftime("%Y-%m-%dT%H:%M:%S")
+    file_name = f"bees-{iso_datetime}.jpg"
+
     beecam.capture_file(file_name)
     beecam.stop_preview()
 
