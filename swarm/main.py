@@ -18,10 +18,8 @@ def date_and_seconds_from_midnight() -> str:
     YYYYMMDD.sec where sec is the secods since midnight for the given day.
     """
 
-    # Get the current datetime
     now = datetime.datetime.now()
 
-    # Format the date part o the string to YYYYMMDD
     date_str = now.strftime('%Y%m%d')
 
     # Seconds since midnight
@@ -48,6 +46,8 @@ def take_landingboard_photo():
     beecam.start()
     time.sleep(2)
 
+    # It's much easier to determine when the image was taken when filename
+    # is in the format bees-YYYYMMDD.sec.jpg
     file_name = f"bees-{date_and_seconds_from_midnight()}.jpg"
     beecam.capture_file(file_name)
     beecam.stop_preview()
@@ -88,7 +88,7 @@ def process_bee_photo(file_name: str, x: int, y: int):
 
 
 @app.command()
-def upload_photo_to_s3(file_name: str, bucket: str, object_name=None):
+def upload_photo_to_s3(file_name: str, bucket: str, object_name=None) -> str:
     typer.echo(f"Uploading {file_name} to S3...")
 
     # If S3 object_name was not specified, use file_name
