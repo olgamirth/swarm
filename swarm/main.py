@@ -8,6 +8,7 @@ import os
 from picamera2 import Picamera2, Preview
 from botocore.exceptions import NoCredentialsError
 from datetime import datetime
+from decouple import config
 
 app = typer.Typer()
 
@@ -37,7 +38,7 @@ def take_landingboard_photo():
 
 
 @app.command()
-def process_bee_photo(file_name: str, x: int, y: int):
+def process_bee_photo(file_name: str, x: int = 640, y: int = 480):
     """
     Pre-process the image specified by file_name using OpenCV
     This will include resizing the images to a standard view, converting it
@@ -72,14 +73,22 @@ def process_bee_photo(file_name: str, x: int, y: int):
 
 @app.command()
 def upload_photo_to_s3(file_name: str, bucket: str, object_name=None) -> str:
+    """
+    Upload photo from process_bee_photo() and return S3 URL to file
+    """
     typer.echo(f"Uploading {file_name} to S3...")
+
+    session = boto3.Session(
+        aws_access_key_id=config('ACCESS_KEY'),
+        aws_secret_access_key=config('SECRET_KEY'),
+        region_name=config('REGION')
+    )
+
+    s3_client = session.client('s3')
 
     # If S3 object_name was not specified, use file_name
     if object_name is None:
         object_name = file_name
-
-    # Create an S3 client
-    s3_client = boto3.client('s3')
 
     try:
         # Upload the file
