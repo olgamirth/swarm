@@ -1,3 +1,4 @@
 opencv-python
 marvin
 typer
+python-decouple
