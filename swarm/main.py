@@ -1,6 +1,5 @@
 import typer
 import cv2
-import numpy as np
 import boto3
 import time
 import os
@@ -70,14 +69,17 @@ def process_bee_photo(file_name: str, x: int = 640, y: int = 480):
     except Exception as e:
         typer.echo(f"An error occurred during grayscale processing: {e}")
 
+    return gray_image
+
 
 @app.command()
-def upload_photo_to_s3(file_name: str, bucket: str, object_name=None) -> str:
+def upload_photo_to_s3(file_name: str, object_name: str = None) -> str:
     """
     Upload photo from process_bee_photo() and return S3 URL to file
     """
     typer.echo(f"Uploading {file_name} to S3...")
 
+    bucket = config('BUCKET')
     session = boto3.Session(
         aws_access_key_id=config('ACCESS_KEY'),
         aws_secret_access_key=config('SECRET_KEY'),
@@ -98,6 +100,8 @@ def upload_photo_to_s3(file_name: str, bucket: str, object_name=None) -> str:
         print("The file was not found")
     except NoCredentialsError:
         print("Credentials not available")
+
+    return response
 
 
 @app.command()
