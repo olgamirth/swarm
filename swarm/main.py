@@ -3,8 +3,13 @@ import cv2
 import boto3
 import time
 import os
+import sys
 
-from picamera2 import Picamera2, Preview
+try:
+    from picamera2 import Picamera2, Preview
+except ImportError:
+    pass
+
 from botocore.exceptions import NoCredentialsError
 from datetime import datetime
 from decouple import config
@@ -18,6 +23,9 @@ def take_landingboard_photo():
     Use the PiCamera2 module to take a picture of a Langstroth hive landing
     board
     """
+    if sys.platform != 'linux':
+        typer.echo("This command is only available on Linux")
+        return
 
     beecam = Picamera2()
     camera_config = beecam.create_preview_configuration()
@@ -79,29 +87,34 @@ def upload_photo_to_s3(file_name: str, object_name: str = None) -> str:
     """
     typer.echo(f"Uploading {file_name} to S3...")
 
+    access_key = config('ACCESS_KEY')
+    secret_key = config('SECRET_KEY')
+    aws_region = config('REGION')
     bucket = config('BUCKET')
+
     session = boto3.Session(
-        aws_access_key_id=config('ACCESS_KEY'),
-        aws_secret_access_key=config('SECRET_KEY'),
-        region_name=config('REGION')
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        region_name=aws_region
     )
 
     s3_client = session.client('s3')
 
     # If S3 object_name was not specified, use file_name
     if object_name is None:
-        object_name = file_name
+        object_name = os.path.basename(file_name)
 
     try:
-        # Upload the file
-        response = s3_client.upload_file(file_name, bucket, object_name)
+        s3_client.upload_file(file_name, bucket, object_name, ExtraArgs={'ACL': 'public-read'})
         print(f"File {file_name} uploaded to {bucket}/{object_name}")
     except FileNotFoundError:
         print("The file was not found")
     except NoCredentialsError:
         print("Credentials not available")
 
-    return response
+    s3_file_link = f"https://{bucket}.s3.{aws_region}.amazonaws.com/{object_name}"
+    print(s3_file_link)
+    return s3_file_link
 
 
 @app.command()
