@@ -13,6 +13,7 @@ except ImportError:
 from botocore.exceptions import NoCredentialsError
 from datetime import datetime
 from decouple import config
+import marvin
 
 app = typer.Typer()
 
@@ -119,14 +120,18 @@ def upload_photo_to_s3(file_name: str, object_name: str = None) -> str:
 
 @app.command()
 def calculate_bee_density_marvin(remote_file_path: str):
+    img = marvin.Image(remote_file_path)
+    result = marvin.extract(img, target=int, instructions="count the number of bees in this picture")
     typer.echo(f"Calculating bee density for {remote_file_path} using Marvin AI...")
-
-
-@app.command()
-def calculate_bee_density_opencv(file_path: str):
-    typer.echo(f"Calculating bee density for {file_path} using OpenCV...")
+    typer.echo(result)
+    return result[0]
 
 
 @app.command()
 def check_swarm_event(last_n_entries: int = 10) -> bool:
     typer.echo(f"Checking if swarm event based on {last_n_entries} log entries...")
+
+
+@app.command()
+def notify_swarm_event():
+    typer.echo("Sending notification of swarm event...")
