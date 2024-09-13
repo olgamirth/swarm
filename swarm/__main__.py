@@ -7,7 +7,7 @@ bee_measure = BeeMeasure()
 
 
 @app.command()
-def run_all():
+def run_whole_pipeline():
     bee_measure.run_all()
 
 
@@ -36,8 +36,8 @@ def calculate_bee_density(url: str):
 
 
 @app.command()
-def store_bee_densities(url: str, count: int):
-    bee_measure.store_bee_densities()
+def store_bee_density(url: str, count: int):
+    bee_measure.store_bee_density(url, count)
     typer.echo(f"Bee density count: {count}")
 
 
@@ -45,3 +45,7 @@ def store_bee_densities(url: str, count: int):
 def check_swarm_event():
     result = bee_measure.check_swarm_event()
     typer.echo(f"Swarm event detection output: {result}")
+
+
+if __name__ == "__main__":
+    app()

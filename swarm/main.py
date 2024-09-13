@@ -135,7 +135,7 @@ class BeeMeasure:
         )
         return result[0]
 
-    def store_bee_densities(self, url, count):
+    def store_bee_density(self, url, count):
         """
         Store latest bee density from Marvin AI in Supabase cloud
         CREATE TABLE bee_density (
@@ -161,6 +161,7 @@ class BeeMeasure:
         return data
 
     def check_swarm_event(self, last_n_entries: int = 10) -> bool:
+        # use the bee_density table to check if there is a swarm event
         # if event call _notify_swarm_event
         raise NotImplementedError(
             f"Checking if swarm event based on {last_n_entries} log entries..."
