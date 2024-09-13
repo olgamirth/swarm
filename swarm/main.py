@@ -19,16 +19,14 @@ except ImportError:
 class BeeMeasure:
     def __init__(self):
         self.timestamp = datetime.now()
-        self.url = ""
-        self.count = 0
 
-    def __call__(self):
+    def run_all(self):
         """Call the pipeline in sequence"""
         file_name = self.take_landingboard_photo()
         processed_file_name = self.process_bee_photo(file_name)
-        self.url = self.upload_photo_to_s3(processed_file_name)
-        self.count = self.calculate_bee_density_marvin()
-        self.store_bee_densities()
+        url = self.upload_photo_to_s3(processed_file_name)
+        count = self.calculate_bee_density_marvin(url)
+        self.store_bee_densities(url, count)
         self.check_swarm_event()
 
     def take_landingboard_photo(self):
@@ -130,14 +128,14 @@ class BeeMeasure:
         print(s3_file_link)
         return s3_file_link
 
-    def calculate_bee_density_marvin(self) -> int:
-        img = marvin.Image(self.url)
+    def calculate_bee_density_marvin(self, url: str) -> int:
+        img = marvin.Image(url)
         result = marvin.extract(
             img, target=int, instructions="count the number of bees in this picture"
         )
         return result[0]
 
-    def store_bee_densities(self):
+    def store_bee_densities(self, url, count):
         """
         Store latest bee density from Marvin AI in Supabase cloud
         CREATE TABLE bee_density (
@@ -157,7 +155,7 @@ class BeeMeasure:
 
         data = (
             supabase.table(supabase_table_name)
-            .insert({"timestamp": str(self.timestamp), "url": self.url, "count": self.count})
+            .insert({"timestamp": str(self.timestamp), "url": url, "count": count})
             .execute()
         )
         return data
