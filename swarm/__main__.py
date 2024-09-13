@@ -1,4 +1,5 @@
-from .main import app
+from .main import BeeMeasure
 
 if __name__ == "__main__":
-    app()
+    bee_measure = BeeMeasure()
+    bee_measure()

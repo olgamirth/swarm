@@ -9,5 +9,6 @@ dependencies = [
     "marvin>=2.3.7",
     "opencv-python>=4.10.0.84",
     "python-decouple>=3.8",
+    "supabase>=2.7.4",
     "typer>=0.12.5",
 ]
