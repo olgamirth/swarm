@@ -151,6 +151,14 @@ def store_bee_densities(density: int):
 
 
 @app.command()
+def rolling_window_analysis(window_size, threshold_factor):
+    """
+
+    """
+    typer.echo(f"Rolling Window analysis of the last 10 minutes of bee activity at the hive entrance") 
+
+
+@app.command()
 def check_swarm_event(last_n_entries: int = 10) -> bool:
     typer.echo(f"Checking if swarm event based on {last_n_entries} log entries...")
 
