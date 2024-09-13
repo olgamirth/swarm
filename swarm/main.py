@@ -24,10 +24,9 @@ class BeeMeasure:
 
     def __call__(self):
         """Call the pipeline in sequence"""
-        # file_name = self.take_landingboard_photo()
-        file_name = "experiment/bee-photos/bees-1721781121.jpg"
-        file_name = self.process_bee_photo(file_name)
-        self.url = self.upload_photo_to_s3(file_name)
+        file_name = self.take_landingboard_photo()
+        processed_file_name = self.process_bee_photo(file_name)
+        self.url = self.upload_photo_to_s3(processed_file_name)
         self.count = self.calculate_bee_density_marvin()
         self.store_bee_densities()
         self.check_swarm_event()
