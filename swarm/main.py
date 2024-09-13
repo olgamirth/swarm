@@ -153,7 +153,7 @@ def store_bee_densities(density: int):
 @app.command()
 def rolling_window_analysis(window_size, threshold_factor):
     """
-
+    https://medium.com/making-sense-of-data/time-series-next-value-prediction-using-regression-over-a-rolling-window-228f0acae363
     """
     typer.echo(f"Rolling Window analysis of the last 10 minutes of bee activity at the hive entrance") 
 
