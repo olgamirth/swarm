@@ -23,6 +23,11 @@ class BeeMeasure:
         self.supabase_url = config("SUPABASE_URL")
         self.supabase_key = config("SUPABASE_KEY")
         self.supabase_table_name = config("SUPABASE_TABLE_NAME")
+        self.access_key = config("ACCESS_KEY")
+        self.secret_key = config("SECRET_KEY")
+        self.aws_region = config("REGION")
+        self.bucket = config("BUCKET")
+        self.phoneNumber = config("CELLNUMBER")
 
     def run_all(self):
         """Call the pipeline in sequence"""
@@ -95,21 +100,17 @@ class BeeMeasure:
 
         return file_name
 
-    def upload_photo_to_s3(self, file_name: str, object_name: str = None) -> str:
+    def upload_photo_to_s3(self, file_name: str, object_name: str = None) \
+            -> str:
         """
         Upload photo from process_bee_photo() and return S3 URL to file
         """
         print(f"Uploading {file_name} to S3...")
 
-        access_key = config("ACCESS_KEY")
-        secret_key = config("SECRET_KEY")
-        aws_region = config("REGION")
-        bucket = config("BUCKET")
-
         session = boto3.Session(
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            region_name=aws_region,
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key,
+            region_name=self.aws_region
         )
 
         s3_client = session.client("s3")
@@ -120,22 +121,25 @@ class BeeMeasure:
 
         try:
             s3_client.upload_file(
-                file_name, bucket, object_name, ExtraArgs={"ACL": "public-read"}
+                file_name, self.bucket, object_name,
+                ExtraArgs={"ACL": "public-read"}
             )
-            print(f"File {file_name} uploaded to {bucket}/{object_name}")
+            print(f"File {file_name} uploaded to {self.bucket}/{object_name}")
         except FileNotFoundError:
             print("The file was not found")
         except NoCredentialsError:
             print("Credentials not available")
 
-        s3_file_link = f"https://{bucket}.s3.{aws_region}.amazonaws.com/{object_name}"
+        s3_file_link =\
+            f"https://{self.bucket}.s3.{self.aws_region}.amazonaws.com/{object_name}"
         print(s3_file_link)
         return s3_file_link
 
     def calculate_bee_density_marvin(self, url: str) -> int:
         img = marvin.Image(url)
         result = marvin.extract(
-            img, target=int, instructions="count the number of bees in this picture"
+            img, target=int,
+            instructions="count the number of bees in this picture"
         )
         return result[0]
 
@@ -148,15 +152,14 @@ class BeeMeasure:
             url TEXT NOT NULL,
             count INTEGER NOT NULL
         );
-        # TODO: add url column to db
         """
 
-        supabase = create_client(supabase_url, supabase_key)
+        supabase = create_client(self.supabase_url, self.supabase_key)
 
         print("Loading bee density and time in supabase cloud database...")
 
         data = (
-            supabase.table(supabase_table_name)
+            supabase.table(self.supabase_table_name)
             .insert({"timestamp": str(self.timestamp),
                      "url": url,
                      "count": count})
@@ -164,11 +167,13 @@ class BeeMeasure:
         )
         return data
 
-    def fetch_bee_data(start_time, end_time):
+    def fetch_bee_data(self, start_time, end_time):
         """
         Fetch bee count data from Supabase.
         """
-        response = supabase.table("bee_counts").select("timestamp, count") \
+        supabase = create_client(self.supabase_url, self.supabase_key)
+        response = supabase.table(self.supabase_table_name)\
+                           .select("timestamp, count") \
                            .gte("timestamp", start_time) \
                            .lte("timestamp", end_time) \
                            .order("timestamp") \
@@ -187,7 +192,8 @@ class BeeMeasure:
 
         moving_avg = bee_counts.rolling(window=window_size, center=True).mean()
 
-        z_scores = (bee_counts - moving_avg) / bee_counts.rolling(window=window_size, center=True).std()
+        z_scores = (bee_counts - moving_avg) /\
+            bee_counts.rolling(window=window_size, center=True).std()
 
         # Calculate cumulative deviation scores (5-minute window)
         cumulative_scores = \
@@ -200,4 +206,19 @@ class BeeMeasure:
         return swarm_events
 
     def _notify_swarm_event(self):
+        """
+        Notify Beekeeper of potential swarm event using AWS SNS
+        TODO: Pass time value of event
+        """
         raise NotImplementedError("Sending notification of swarm event...")
+
+        sns = boto3.client('sns',
+                           aws_access_key_id=self.access_key,
+                           aws_secret_access_key=self.secret_key,
+                           region_name=self.aws_region,
+                           )
+
+        response = sns.publish(
+                               PhoneNumber='self.phoneNumber',
+                               Message='Potential swarm event at some time'
+                               )
