@@ -1,11 +1,12 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from supabase import create_client, Client
-from decouple import config
 
 
 def generate_bee_count_data(days=1, interval_minutes=0.5, swarm_time=None):
+    # TODO: make sure the data returned here supports rolling, because we
+    # got a: *** AttributeError: 'BeeMeasure' object has no attribute 'rolling'
+
     start_time = datetime.now().replace(hour=0, minute=0, second=0,
                                         microsecond=0)
     end_time = start_time + timedelta(days=days)
@@ -14,6 +15,8 @@ def generate_bee_count_data(days=1, interval_minutes=0.5, swarm_time=None):
 
     # Base bee count (normal activity)
     base_count = 50
+
+    # TODO: take the randomness out
 
     # Generate bee counts
     bee_counts = []
@@ -40,29 +43,5 @@ def generate_bee_count_data(days=1, interval_minutes=0.5, swarm_time=None):
 
         bee_counts.append(count)
 
-    # Create DataFrame
     df = pd.DataFrame({'timestamp': timestamps, 'bee_count': bee_counts})
     return df
-
-
-supabase_url: str = config("SUPABASE_URL")
-supabase_key: str = config("SUPABASE_KEY")
-supabase_table_name: str = config("SUPABASE_TABLE_NAME")
-supabase: Client = create_client(supabase_url, supabase_key)
-
-# Generate data for 1 day with a swarm at 2 PM
-swarm_time = datetime.now().replace(hour=14, minute=0, second=0, microsecond=0)
-df = generate_bee_count_data(days=1, interval_minutes=0.5,
-                             swarm_time=swarm_time)
-
-# Convert DataFrame to list of dictionaries
-data_to_insert = df.to_dict('records')
-
-response = supabase.table(supabase_table_name).insert(data_to_insert).execute()
-
-print(f"Inserted {len(data_to_insert)} rows into {supabase_table_name}")
-
-if hasattr(response, 'error') and response.error:
-    print(f"Error: {response.error}")
-else:
-    print("Data inserted successfully")
