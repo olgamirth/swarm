@@ -184,26 +184,14 @@ class BeeMeasure:
         df.set_index('timestamp', inplace=True)
         return df['count']
 
-    def detect_swarm_event_pandas(bee_counts, window_size=10, z_threshold=3,
-                                  cumulative_threshold=10):
-        """
-        Detect potential swarm events in bee count data.
-        """
-
-        moving_avg = bee_counts.rolling(window=window_size, center=True).mean()
-
-        z_scores = (bee_counts - moving_avg) /\
-            bee_counts.rolling(window=window_size, center=True).std()
-
-        # Calculate cumulative deviation scores (5-minute window)
-        cumulative_scores = \
-            z_scores.abs().rolling(window=window_size // 2).sum()
-
-        # Identify potential swarm events
-        swarm_events = \
-            cumulative_scores[cumulative_scores > cumulative_threshold]
-
+    def detect_swarm_event_pandas(self, bee_counts, window_size=10, z_threshold=3,
+                                  cumulative_threshold=10) -> pd.Series:
+        moving_avg = bee_counts['bee_count'].rolling(window=window_size, center=True).mean()
+        z_scores = (bee_counts['bee_count'] - moving_avg) / bee_counts['bee_count'].rolling(window=window_size, center=True).std()
+        cumulative_scores = z_scores.abs().rolling(window=window_size // 2).sum()
+        swarm_events = cumulative_scores[cumulative_scores > cumulative_threshold]
         return swarm_events
+
 
     def _notify_swarm_event(self):
         """
@@ -218,7 +206,5 @@ class BeeMeasure:
                            region_name=self.aws_region,
                            )
 
-        response = sns.publish(
-                               PhoneNumber='self.phoneNumber',
-                               Message='Potential swarm event at some time'
-                               )
+        sns.publish(PhoneNumber='self.phoneNumber',
+                    Message='Potential swarm event at some time')
