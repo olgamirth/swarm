@@ -4,6 +4,7 @@ import sys
 
 import cv2
 import boto3
+import pandas as pd
 from botocore.exceptions import NoCredentialsError
 from datetime import datetime
 from decouple import config
@@ -19,6 +20,14 @@ except ImportError:
 class BeeMeasure:
     def __init__(self):
         self.timestamp = datetime.now()
+        self.supabase_url = config("SUPABASE_URL")
+        self.supabase_key = config("SUPABASE_KEY")
+        self.supabase_table_name = config("SUPABASE_TABLE_NAME")
+        self.access_key = config("ACCESS_KEY")
+        self.secret_key = config("SECRET_KEY")
+        self.aws_region = config("REGION")
+        self.bucket = config("BUCKET")
+        self.phoneNumber = config("CELLNUMBER")
 
     def run_all(self):
         """Call the pipeline in sequence"""
@@ -91,21 +100,17 @@ class BeeMeasure:
 
         return file_name
 
-    def upload_photo_to_s3(self, file_name: str, object_name: str = None) -> str:
+    def upload_photo_to_s3(self, file_name: str, object_name: str = None) \
+            -> str:
         """
         Upload photo from process_bee_photo() and return S3 URL to file
         """
         print(f"Uploading {file_name} to S3...")
 
-        access_key = config("ACCESS_KEY")
-        secret_key = config("SECRET_KEY")
-        aws_region = config("REGION")
-        bucket = config("BUCKET")
-
         session = boto3.Session(
-            aws_access_key_id=access_key,
-            aws_secret_access_key=secret_key,
-            region_name=aws_region,
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key,
+            region_name=self.aws_region
         )
 
         s3_client = session.client("s3")
@@ -116,26 +121,29 @@ class BeeMeasure:
 
         try:
             s3_client.upload_file(
-                file_name, bucket, object_name, ExtraArgs={"ACL": "public-read"}
+                file_name, self.bucket, object_name,
+                ExtraArgs={"ACL": "public-read"}
             )
-            print(f"File {file_name} uploaded to {bucket}/{object_name}")
+            print(f"File {file_name} uploaded to {self.bucket}/{object_name}")
         except FileNotFoundError:
             print("The file was not found")
         except NoCredentialsError:
             print("Credentials not available")
 
-        s3_file_link = f"https://{bucket}.s3.{aws_region}.amazonaws.com/{object_name}"
+        s3_file_link =\
+            f"https://{self.bucket}.s3.{self.aws_region}.amazonaws.com/{object_name}"
         print(s3_file_link)
         return s3_file_link
 
     def calculate_bee_density_marvin(self, url: str) -> int:
         img = marvin.Image(url)
         result = marvin.extract(
-            img, target=int, instructions="count the number of bees in this picture"
+            img, target=int,
+            instructions="count the number of bees in this picture"
         )
         return result[0]
 
-    def store_bee_density(self, url, count):
+    def store_bee_data(self, url, count):
         """
         Store latest bee density from Marvin AI in Supabase cloud
         CREATE TABLE bee_density (
@@ -144,28 +152,73 @@ class BeeMeasure:
             url TEXT NOT NULL,
             count INTEGER NOT NULL
         );
-        # TODO: add url column to db
         """
-        supabase_url = config("SUPABASE_URL")
-        supabase_key = config("SUPABASE_KEY")
-        supabase_table_name = config("SUPABASE_TABLE_NAME")
-        supabase = create_client(supabase_url, supabase_key)
+
+        supabase = create_client(self.supabase_url, self.supabase_key)
 
         print("Loading bee density and time in supabase cloud database...")
 
         data = (
-            supabase.table(supabase_table_name)
-            .insert({"timestamp": str(self.timestamp), "url": url, "count": count})
+            supabase.table(self.supabase_table_name)
+            .insert({"timestamp": str(self.timestamp),
+                     "url": url,
+                     "count": count})
             .execute()
         )
         return data
 
-    def check_swarm_event(self, last_n_entries: int = 10) -> bool:
-        # use the bee_density table to check if there is a swarm event
-        # if event call _notify_swarm_event
-        raise NotImplementedError(
-            f"Checking if swarm event based on {last_n_entries} log entries..."
-        )
+    def fetch_bee_data(self, start_time, end_time):
+        """
+        Fetch bee count data from Supabase.
+        """
+        supabase = create_client(self.supabase_url, self.supabase_key)
+        response = supabase.table(self.supabase_table_name)\
+                           .select("timestamp, count") \
+                           .gte("timestamp", start_time) \
+                           .lte("timestamp", end_time) \
+                           .order("timestamp") \
+                           .execute()
+
+        df = pd.DataFrame(response.data)
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df.set_index('timestamp', inplace=True)
+        return df['count']
+
+    def detect_swarm_event_pandas(bee_counts, window_size=10, z_threshold=3,
+                                  cumulative_threshold=10):
+        """
+        Detect potential swarm events in bee count data.
+        """
+
+        moving_avg = bee_counts.rolling(window=window_size, center=True).mean()
+
+        z_scores = (bee_counts - moving_avg) /\
+            bee_counts.rolling(window=window_size, center=True).std()
+
+        # Calculate cumulative deviation scores (5-minute window)
+        cumulative_scores = \
+            z_scores.abs().rolling(window=window_size // 2).sum()
+
+        # Identify potential swarm events
+        swarm_events = \
+            cumulative_scores[cumulative_scores > cumulative_threshold]
+
+        return swarm_events
 
     def _notify_swarm_event(self):
+        """
+        Notify Beekeeper of potential swarm event using AWS SNS
+        TODO: Pass time value of event
+        """
         raise NotImplementedError("Sending notification of swarm event...")
+
+        sns = boto3.client('sns',
+                           aws_access_key_id=self.access_key,
+                           aws_secret_access_key=self.secret_key,
+                           region_name=self.aws_region,
+                           )
+
+        response = sns.publish(
+                               PhoneNumber='self.phoneNumber',
+                               Message='Potential swarm event at some time'
+                               )
