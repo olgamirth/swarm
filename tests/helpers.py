@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 
 def generate_bee_count_data(days=1, interval_minutes=0.5, swarm_time=None):
+    # Branch: work-on-testing
     # TODO: make sure the data returned here supports rolling, because we
     # got a: *** AttributeError: 'BeeMeasure' object has no attribute 'rolling'
 
