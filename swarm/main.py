@@ -184,6 +184,16 @@ class BeeMeasure:
         df.set_index('timestamp', inplace=True)
         return df['count']
 
+    def detect_swarm_event_manual(self, df, spike_threshold=400, window_size=3):
+        # NOT to use, we need something more sophisticated
+        swarm_indices = []
+        for i in range(len(df) - window_size):
+            # Calculate the difference between the current bee count and the count 'window_size' rows later
+            if df['bee_count'].iloc[i + window_size] - df['bee_count'].iloc[i] >= spike_threshold:
+                swarm_indices.append(i + window_size)  # Mark the index where the swarm is detected
+
+        return pd.Series(swarm_indices, name='bee_count')
+
     def detect_swarm_event_pandas(self, bee_counts, window_size=10, z_threshold=3,
                                   cumulative_threshold=10) -> pd.Series:
         moving_avg = bee_counts['bee_count'].rolling(window=window_size, center=True).mean()
@@ -192,6 +202,13 @@ class BeeMeasure:
         swarm_events = cumulative_scores[cumulative_scores > cumulative_threshold]
         return swarm_events
 
+    def detect_swarm_event_rolling(self, df, spike_threshold=400, window_size=3):
+        # a second rolling window approach to compare with the pandas method
+        # TODO: fix key error
+        rolling_diff = df['bee_count'].rolling(window=window_size).apply(lambda x: x[-1] - x[0], raw=False)
+        rolling_diff = rolling_diff.dropna()
+        swarm_indices = rolling_diff[rolling_diff >= spike_threshold].index
+        return pd.Series(swarm_indices, name='bee_count')
 
     def _notify_swarm_event(self):
         """
