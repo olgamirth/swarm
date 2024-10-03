@@ -100,8 +100,7 @@ class BeeMeasure:
 
         return file_name
 
-    def upload_photo_to_s3(self, file_name: str, object_name: str = None) \
-            -> str:
+    def upload_photo_to_s3(self, file_name: str, object_name: str = None) -> str:
         """
         Upload photo from process_bee_photo() and return S3 URL to file
         """
@@ -110,7 +109,7 @@ class BeeMeasure:
         session = boto3.Session(
             aws_access_key_id=self.access_key,
             aws_secret_access_key=self.secret_key,
-            region_name=self.aws_region
+            region_name=self.aws_region,
         )
 
         s3_client = session.client("s3")
@@ -121,8 +120,7 @@ class BeeMeasure:
 
         try:
             s3_client.upload_file(
-                file_name, self.bucket, object_name,
-                ExtraArgs={"ACL": "public-read"}
+                file_name, self.bucket, object_name, ExtraArgs={"ACL": "public-read"}
             )
             print(f"File {file_name} uploaded to {self.bucket}/{object_name}")
         except FileNotFoundError:
@@ -130,16 +128,16 @@ class BeeMeasure:
         except NoCredentialsError:
             print("Credentials not available")
 
-        s3_file_link =\
+        s3_file_link = (
             f"https://{self.bucket}.s3.{self.aws_region}.amazonaws.com/{object_name}"
+        )
         print(s3_file_link)
         return s3_file_link
 
     def calculate_bee_density_marvin(self, url: str) -> int:
         img = marvin.Image(url)
         result = marvin.extract(
-            img, target=int,
-            instructions="count the number of bees in this picture"
+            img, target=int, instructions="count the number of bees in this picture"
         )
         return result[0]
 
@@ -160,9 +158,7 @@ class BeeMeasure:
 
         data = (
             supabase.table(self.supabase_table_name)
-            .insert({"timestamp": str(self.timestamp),
-                     "url": url,
-                     "count": count})
+            .insert({"timestamp": str(self.timestamp), "url": url, "count": count})
             .execute()
         )
         return data
@@ -172,43 +168,52 @@ class BeeMeasure:
         Fetch bee count data from Supabase.
         """
         supabase = create_client(self.supabase_url, self.supabase_key)
-        response = supabase.table(self.supabase_table_name)\
-                           .select("timestamp, count") \
-                           .gte("timestamp", start_time) \
-                           .lte("timestamp", end_time) \
-                           .order("timestamp") \
-                           .execute()
+        response = (
+            supabase.table(self.supabase_table_name)
+            .select("timestamp, count")
+            .gte("timestamp", start_time)
+            .lte("timestamp", end_time)
+            .order("timestamp")
+            .execute()
+        )
 
         df = pd.DataFrame(response.data)
-        df['timestamp'] = pd.to_datetime(df['timestamp'])
-        df.set_index('timestamp', inplace=True)
-        return df['count']
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df.set_index("timestamp", inplace=True)
+        return df["count"]
 
-    def detect_swarm_event_manual(self, df, spike_threshold=400, window_size=3):
-        # NOT to use, we need something more sophisticated
-        swarm_indices = []
-        for i in range(len(df) - window_size):
-            # Calculate the difference between the current bee count and the count 'window_size' rows later
-            if df['bee_count'].iloc[i + window_size] - df['bee_count'].iloc[i] >= spike_threshold:
-                swarm_indices.append(i + window_size)  # Mark the index where the swarm is detected
-
-        return pd.Series(swarm_indices, name='bee_count')
-
-    def detect_swarm_event_pandas(self, bee_counts, window_size=10, z_threshold=3,
-                                  cumulative_threshold=10) -> pd.Series:
-        moving_avg = bee_counts['bee_count'].rolling(window=window_size, center=True).mean()
-        z_scores = (bee_counts['bee_count'] - moving_avg) / bee_counts['bee_count'].rolling(window=window_size, center=True).std()
+    def detect_swarm_event_pandas(
+        self, bee_counts, window_size=10, z_threshold=3, cumulative_threshold=10
+    ):
+        # TODO: compare the two methods for more data sets, which
+        # one is more reliable?
+        moving_avg = (
+            bee_counts["bee_count"].rolling(window=window_size, center=True).mean()
+        )
+        z_scores = (bee_counts["bee_count"] - moving_avg) / bee_counts[
+            "bee_count"
+        ].rolling(window=window_size, center=True).std()
         cumulative_scores = z_scores.abs().rolling(window=window_size // 2).sum()
         swarm_events = cumulative_scores[cumulative_scores > cumulative_threshold]
         return swarm_events
 
-    def detect_swarm_event_rolling(self, df, spike_threshold=400, window_size=3):
-        # a second rolling window approach to compare with the pandas method
-        # TODO: fix key error
-        rolling_diff = df['bee_count'].rolling(window=window_size).apply(lambda x: x[-1] - x[0], raw=False)
-        rolling_diff = rolling_diff.dropna()
+    def _calculate_diff(self, x):
+        if len(x) > 1:
+            return x.iloc[-1] - x.iloc[0]
+        return 0
+
+    def detect_swarm_event_rolling(
+        self, df, spike_threshold=400, window_size=3
+    ) -> bool:
+        rolling_diff = (
+            df["bee_count"]
+            .rolling(window=window_size, min_periods=1)
+            .apply(self._calculate_diff, raw=False)
+        )
         swarm_indices = rolling_diff[rolling_diff >= spike_threshold].index
-        return pd.Series(swarm_indices, name='bee_count')
+
+        swarm_detected = not swarm_indices.empty
+        return swarm_detected
 
     def _notify_swarm_event(self):
         """
@@ -217,11 +222,13 @@ class BeeMeasure:
         """
         raise NotImplementedError("Sending notification of swarm event...")
 
-        sns = boto3.client('sns',
-                           aws_access_key_id=self.access_key,
-                           aws_secret_access_key=self.secret_key,
-                           region_name=self.aws_region,
-                           )
+        sns = boto3.client(
+            "sns",
+            aws_access_key_id=self.access_key,
+            aws_secret_access_key=self.secret_key,
+            region_name=self.aws_region,
+        )
 
-        sns.publish(PhoneNumber='self.phoneNumber',
-                    Message='Potential swarm event at some time')
+        sns.publish(
+            PhoneNumber="self.phoneNumber", Message="Potential swarm event at some time"
+        )
