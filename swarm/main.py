@@ -16,6 +16,8 @@ try:
 except ImportError:
     pass
 
+debug_mode = '--debug' in sys.argv
+
 
 class BeeMeasure:
     def __init__(self):
@@ -215,6 +217,15 @@ class BeeMeasure:
         swarm_detected = not swarm_indices.empty
         return swarm_detected
 
+    def _debug_skip_sms_notification(func):
+        def wrapper(self, *args, **kwargs):
+            if debug_mode:
+                print(f"Debug: Swarm event detected; Skipping {func.__name__}")
+            else:
+                return func(self, *args, **kwargs)
+        return wrapper
+
+    @_debug_skip_sms_notification
     def _notify_swarm_event(self):
         """
         Notify Beekeeper of potential swarm event using AWS SNS
