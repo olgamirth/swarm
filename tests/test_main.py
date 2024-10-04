@@ -45,6 +45,17 @@ df_false_alarm_2 = pd.DataFrame(
     }
 )
 
+# False alarm DataFrames with sustained activity at the hive entrance;
+# Mimicks "bearding"
+df_false_alarm_3 = pd.DataFrame(
+    {
+        "timestamp": pd.date_range("2024-09-27 00:00:00", periods=20, freq="30s"),
+        "bee_count": [
+            180, 190, 210, 200, 230, 260, 280, 400, 650, 850,
+            950, 1000, 1000, 1010, 990, 1020, 1005, 995, 1000, 1010
+        ],
+    }
+)
 
 @pytest.fixture(scope="module")
 def bee_measure():
