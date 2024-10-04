@@ -16,8 +16,6 @@ try:
 except ImportError:
     pass
 
-debug_mode = '--debug' in sys.argv
-
 
 class BeeMeasure:
     def __init__(self):
@@ -30,6 +28,7 @@ class BeeMeasure:
         self.aws_region = config("REGION")
         self.bucket = config("BUCKET")
         self.phoneNumber = config("CELLNUMBER")
+        self.debug_mode = config("DEBUG")
 
     def run_all(self):
         """Call the pipeline in sequence"""
@@ -204,9 +203,13 @@ class BeeMeasure:
             return x.iloc[-1] - x.iloc[0]
         return 0
 
-    def detect_swarm_event_rolling(
-        self, df, spike_threshold=400, window_size=3
-    ) -> bool:
+    def detect_swarm_event_rolling(self,
+                                   df,
+                                   spike_threshold=400,
+                                   window_size=3) -> bool:
+        """
+
+        """
         rolling_diff = (
             df["bee_count"]
             .rolling(window=window_size, min_periods=1)
@@ -219,7 +222,7 @@ class BeeMeasure:
 
     def _debug_skip_sms_notification(func):
         def wrapper(self, *args, **kwargs):
-            if debug_mode:
+            if self.debug_mode:
                 print(f"Debug: Swarm event detected; Skipping {func.__name__}")
             else:
                 return func(self, *args, **kwargs)
@@ -241,5 +244,6 @@ class BeeMeasure:
         )
 
         sns.publish(
-            PhoneNumber="self.phoneNumber", Message="Potential swarm event at some time"
+            PhoneNumber="self.phoneNumber",
+            Message="Potential swarm event at some time"
         )
